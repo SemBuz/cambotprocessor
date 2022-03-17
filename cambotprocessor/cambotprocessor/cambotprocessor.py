@@ -269,17 +269,18 @@ def main():
 
 	args = parser.parse_args()
 
+	print("Base dir  : %s" % args.output)
+	print("Image dir : %s" % args.input)		
+	print("Bin dir   : %s" % args.binary)
+	print("Blur      : %s" % args.blur)
+	print("outputtype: %s" % args.outputtype)
+	print("Bounding  : %s" % args.bounding)
+
 	if (args.meshroomqueue != "" and args.config == ""):
 	    run_custom_queue(args.binary,args.meshroomqueue,args.input,args.blur)
 	elif args.config != "":
 		config_standard_queue(args.config)
 	else:
-		print("Base dir  : %s" % args.output)
-		print("Image dir : %s" % args.input)
-		print("Bin dir   : %s" % args.binary)
-		print("Blur      : %s" % args.blur)
-		print("outputtype: %s" % args.outputtype)
-		print("Bounding  : %s" % args.bounding)
 		standard_queue(args)
 
 def standard_queue(args):
@@ -302,7 +303,31 @@ def standard_queue(args):
 	run_10_texturing(args.output,args.binary)
 
 def config_standard_queue(configFile):
-	#ToDo configparsing
-	pass
+	config = configparser.ConfigParser()
+	config.sections()
+	config.read(configFile)
+	input = config["FileManagement"]["input"]
+	output = config["FileManagement"]["output"]
+	binary = config["FileManagement"]["binary"]
+	blur = int(config["ObligatoryParameters"]["blur"])
+	bounding = config["OptionalParameters"]["bounding"]
+	outputtype = config["ObligatoryParameters"]["outputtype"]
+
+	numImages = len([name for name in os.listdir(input)])
+
+	silent_mkdir(output)
+
+	run_00_camerainit(output,binary,input)
+	run_01_featureextraction(output,binary,numImages)
+	run_02_imagematching(output,binary)
+	run_03_featurematching(output,binary)
+	run_04_structure_from_motion(output,binary)
+	run_05_prepare_densescene(output,binary)
+	run_06_depthmap(output,binary,numImages,3)
+	run_07_depthmapfilter(output,binary)
+	run_08_meshing(output,binary,bounding)
+	run_09_meshfiltering(output,binary)
+	run_10_texturing(output,binary)
+
 
 main()
