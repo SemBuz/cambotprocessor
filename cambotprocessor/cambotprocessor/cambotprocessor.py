@@ -10,7 +10,7 @@ def silent_mkdir(theDir):
 	return 0
 
 def run_00_camerainit(baseDir,binDir,srcImageDir):
-	SilentMkdir(baseDir + "/00_CameraInit")
+	silent_mkdir(baseDir + "/00_CameraInit")
 
 	binName = binDir + "/aliceVision_cameraInit.exe"
 
@@ -131,40 +131,124 @@ def run_05_prepare_densescene(baseDir,binDir):
 	subprocess.call(cmdLine)
 	return 0
 
-def run_06_depthmap(baseDir,binDir,numImages):
+def run_06_depthmap(baseDir,binDir,numImages,groupSize):
 	silent_mkdir(baseDir + "/06_DepthMap")
 
-	srcSfm = baseDir + "/04_StructureFromMotion/bundle.sfm"
-	imgFld = baseDir + "/05_PrepareDenseScene"
-	dstDir = baseDir + "/06_DepthMap"
+	numGroups = (numImages + (groupSize-1))/groupSize
 
-	binName = binDir + "\\aliceVision_dephtMapEstimation.exe"
+	srcsfm = baseDir + "/04_StructureFromMotion/bundle.sfm"
+	imgFld = baseDir + "/05_PrepareDenseScene/"
+	binName = binDir + "\\aliceVision_depthMapEstimation.exe"
+	dstDir = baseDir + "/06_DepthMap"
 
 	cmdLine = binName
 	cmdLine = cmdLine + " --sgmGammaC 5.5 --sgmWSH 4 --refineGammaP 8.0 --refineSigma 15 --refineNSamplesHalf 150 --sgmMaxTCams 10 --refineWSH 3 --downscale 2 --refineMaxTCams 6 --verboseLevel info --refineGammaC 15.5 --sgmGammaP 8.0"
 	cmdLine = cmdLine + " --refineNiters 100 --refineNDepthsToRefine 31 --refineUseTcOrRcPixSize False"
+	
+	cmdLine = cmdLine + " --input \"" + srcsfm + "\""
+	cmdLine = cmdLine + " --imagesFolder \"" + imgFld + "\""
+	cmdLine = cmdLine + " --output \"" + dstDir + "\""
+
+
+	for groupIter in range(int(numGroups)):
+		groupStart = groupSize * groupIter
+		groupSize = min(groupSize,numImages - groupStart)
+		print("DepthMap Group %d/%d: %d, %d" % (groupIter, numGroups, groupStart, groupSize))
+
+		cmd = cmdLine + (" --rangeStart %d --rangeSize %d" % (groupStart,groupSize))
+		print(cmd)
+		subprocess.call(cmd)
+
+
+	return 0
+
+def run_07_depthmapfilter(baseDir,binDir):
+	silent_mkdir(baseDir + "/07_DepthMapFilter")
+
+	binName = binDir + "\\aliceVision_depthMapFiltering.exe"
+	dstDir = baseDir + "/07_DepthMapFilter"
+	srcSfm = baseDir + "/04_StructureFromMotion/bundle.sfm"
+	srcDepthDir = baseDir + "/06_DepthMap"
+
+	cmdLine = binName
+	cmdLine = cmdLine + " --minNumOfConsistentCamsWithLowSimilarity 4"
+	cmdLine = cmdLine + " --minNumOfConsistentCams 3 --verboseLevel info --pixSizeBall 0"
+	cmdLine = cmdLine + " --pixSizeBallWithLowSimilarity 0 --nNearestCams 10"
 
 	cmdLine = cmdLine + " --input \"" + srcSfm + "\""
-	cmdLine = cmdLine + " --imagesFolder \"" + imgFld + "\""
-	cmdLine = cmdLine + " --output \"" + dstDir +"\""
+	cmdLine = cmdLine + " --output \"" + dstDir + "\""
+	cmdLine = cmdLine + " --depthMapsFolder \"" + srcDepthDir + "\""
 
-	#ToDo: Finish Step 6
+	print(cmdLine)
+	subprocess.call(cmdLine)
 	return 0
 
-def run_07_depthmapfilter():
-	#ToDo: Step 7
+def run_08_meshing(baseDir,binDir,bounding):
+	silent_mkdir(baseDir + "/08_Meshing")
+
+	binName = binDir + "\\aliceVision_meshing.exe"
+	srcSfm = baseDir + "/04_StructureFromMotion/bundle.sfm"
+	srcDepthFilterDir = baseDir + "/07_DepthMapFilter"
+
+	dstDir = baseDir + "/08_Meshing"
+
+	cmdLine = binName
+	if bounding != "":
+		cmdLine = cmdLine + " --boundingBox " + bounding
+	cmdLine = cmdLine + " --simGaussianSizeInit 10.0 --maxInputPoints 50000000 --repartition multiResolution"
+	cmdLine = cmdLine + " --simGaussianSize 10.0 --simFactor 15.0 --voteMarginFactor 4.0 --contributeMarginFactor 2.0 --minStep 2 --pixSizeMarginFinalCoef 4.0 --maxPoints 5000000 --maxPointsPerVoxel 1000000 --angleFactor 15.0 --partitioning singleBlock"
+	cmdLine = cmdLine + " --minAngleThreshold 1.0 --pixSizeMarginInitCoef 2.0 --refineFuse True --verboseLevel info"
+
+	cmdLine = cmdLine + " --input \"" + srcSfm + "\""
+	cmdLine = cmdLine + " --output \"" + dstDir + "\""
+	cmdLine = cmdLine + " --depthMapsFolder \"" + srcDepthFilterDir + "\""
+	cmdLine = cmdLine + " --outputMesh \"" + dstDir + "/Mesh.obj\""
+	
+	print(cmdLine)
+	subprocess.call(cmdLine)
 	return 0
 
-def run_08_meshing():
-	#ToDo: Step 8
+def run_09_meshfiltering(baseDir,binDir):
+	silent_mkdir(baseDir + "/09_MeshFiltering")
+
+	binName = binDir + "\\aliceVision_meshFiltering.exe"
+
+	srcMesh = baseDir + "/08_Meshing/Mesh.obj"
+	dstMesh = baseDir + "/09_MeshFiltering/Mesh.obj"
+
+	cmdLine = binName
+	cmdLine = cmdLine + " --verboseLevel info --filterLargeTrianglesFactor 60.0 --filteringIterations 5 --keepLargestMeshOnly True"
+	cmdLine = cmdLine + " --smoothingLambda 1.0"
+
+	cmdLine = cmdLine + " --input \"" + srcMesh + "\""
+	cmdLine = cmdLine + " --output \"" + dstMesh + "\""
+
+	print(cmdLine)
+	subprocess.call(cmdLine)
+
 	return 0
 
-def run_09_meshfiltering():
-	#ToDo: Step 9
-	return 0
+def run_10_texturing(baseDir,binDir):
+	silent_mkdir(baseDir + "/10_Texturing")
 
-def run_10_texturing():
-	#ToDo: Step 10
+	binName = binDir + "\\aliceVision_texturing.exe"
+
+	srcMesh = baseDir + "/09_MeshFiltering/Mesh.obj"
+	srcSfm = baseDir + "/04_StructureFromMotion/bundle.sfm"
+	dstDir = baseDir
+
+	cmdLine = binName
+	cmdLine = cmdLine + " --textureSide 8192"
+	cmdLine = cmdLine + " --downscale 2 --verboseLevel info --padding 15"
+	cmdLine = cmdLine + " --unwrapMethod Basic --outputTextureFileType png --flipNormals False --fillHoles False"
+
+	cmdLine = cmdLine + " --inputMesh \"" + srcMesh + "\""
+	cmdLine = cmdLine + " --input \"" + srcSfm + "\""
+	cmdLine = cmdLine + " --output \"" + dstDir + "\""
+
+	print(cmdLine)
+	subprocess.call(cmdLine)
+
 	return 0
 
 def run_custom_queue(binDir,queue,input,blur):
@@ -207,15 +291,15 @@ def standard_queue(args):
 
 	run_00_camerainit(args.output,args.binary,args.input)
 	run_01_featureextraction(args.output,args.binary,numImages)
-	run_02_imagematchingg(args.output,args.binary)
+	run_02_imagematching(args.output,args.binary)
 	run_03_featurematching(args.output,args.binary)
 	run_04_structure_from_motion(args.output,args.binary)
 	run_05_prepare_densescene(args.output,args.binary)
 	run_06_depthmap(args.output,args.binary,numImages,3)
 	run_07_depthmapfilter(args.output,args.binary)
-	run_08_meshing(args.output,args.binary,args.outputtype,args.bounding)
-	run_09_meshfiltering(args.output,args.binary,args.outputtype)
-	run_10_texturing(args.output,args.binary,args.outputtype)
+	run_08_meshing(args.output,args.binary,args.bounding)
+	run_09_meshfiltering(args.output,args.binary)
+	run_10_texturing(args.output,args.binary)
 
 def config_standard_queue(configFile):
 	#ToDo configparsing
