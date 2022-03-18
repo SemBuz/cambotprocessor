@@ -3,6 +3,7 @@ import subprocess
 import shutil
 import argparse
 import numpy as np
+from BlurDetection import remove_blur 
 import configparser
 import meshio
 
@@ -290,7 +291,7 @@ def main():
 		standard_queue(args)
 
 def standard_queue(args):
-	#ToDo RemoveBlur
+	remove_blur(args.input,args.blur)
 
 	numImages = len([name for name in os.listdir(args.input)])
 
@@ -323,26 +324,30 @@ def config_standard_queue(configFile):
 	blur = int(config["ObligatoryParameters"]["blur"])
 	bounding = config["OptionalParameters"]["bounding"]
 	outputtype = config["ObligatoryParameters"]["outputtype"]
+	meshroomqueue = config["OptionalParameters"]["meshroomqueue"]
 
-	numImages = len([name for name in os.listdir(input)])
+	if meshroomqueue != "":
+		remove_blur(input,blur)
 
-	silent_mkdir(output)
+		numImages = len([name for name in os.listdir(input)])
 
-	run_00_camerainit(output,binary,input)
-	run_01_featureextraction(output,binary,numImages)
-	run_02_imagematching(output,binary)
-	run_03_featurematching(output,binary)
-	run_04_structure_from_motion(output,binary)
-	run_05_prepare_densescene(output,binary)
-	run_06_depthmap(output,binary,numImages,3)
-	run_07_depthmapfilter(output,binary)
-	run_08_meshing(output,binary,bounding)
-	run_09_meshfiltering(output,binary)
-	if outputtype != "":
-		#Convert Mesh if different outputtype is given
-	    convertMesh(outputtype,output)
+		silent_mkdir(output)
+	
+		run_00_camerainit(output,binary,input)
+		run_01_featureextraction(output,binary,numImages)
+		run_02_imagematching(output,binary)
+		run_03_featurematching(output,binary)
+		run_04_structure_from_motion(output,binary)
+		run_05_prepare_densescene(output,binary)
+		run_06_depthmap(output,binary,numImages,3)
+		run_07_depthmapfilter(output,binary)
+		run_08_meshing(output,binary,bounding)
+		run_09_meshfiltering(output,binary)
+		if outputtype != "":
+			convertMesh(outputtype,output)
+		else:
+			run_10_texturing(output,binary)
 	else:
-		#else add texture to final Mesh
-		run_10_texturing(output,binary)
+		run_custom_queue(binary,meshroomqueue,input,blur)
 
 main()
