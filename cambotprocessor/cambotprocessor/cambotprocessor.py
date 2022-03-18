@@ -1,6 +1,10 @@
 import sys, os
 import subprocess
+import shutil
 import argparse
+import numpy as np
+import configparser
+import meshio
 
 def silent_mkdir(theDir):
 	try:
@@ -229,8 +233,6 @@ def run_09_meshfiltering(baseDir,binDir):
 	return 0
 
 def run_10_texturing(baseDir,binDir):
-	silent_mkdir(baseDir + "/10_Texturing")
-
 	binName = binDir + "\\aliceVision_texturing.exe"
 
 	srcMesh = baseDir + "/09_MeshFiltering/Mesh.obj"
@@ -250,6 +252,10 @@ def run_10_texturing(baseDir,binDir):
 	subprocess.call(cmdLine)
 
 	return 0
+
+def convertMesh(outputtype,output):
+	mesh = meshio.read(output + "/09_MeshFiltering" + "/Mesh.obj")
+	mesh.write(output + "/Mesh." + outputtype)
 
 def run_custom_queue(binDir,queue,input,blur):
 	#ToDo: Custom Queue
@@ -300,7 +306,12 @@ def standard_queue(args):
 	run_07_depthmapfilter(args.output,args.binary)
 	run_08_meshing(args.output,args.binary,args.bounding)
 	run_09_meshfiltering(args.output,args.binary)
-	run_10_texturing(args.output,args.binary)
+	if args.outputtype != "":
+		#Convert Mesh if different outputtype is given
+	    convertMesh(args.outputtype,args.output)
+	else:
+		#else add texture to final Mesh
+		run_10_texturing(args.output,args.binary)
 
 def config_standard_queue(configFile):
 	config = configparser.ConfigParser()
@@ -327,7 +338,11 @@ def config_standard_queue(configFile):
 	run_07_depthmapfilter(output,binary)
 	run_08_meshing(output,binary,bounding)
 	run_09_meshfiltering(output,binary)
-	run_10_texturing(output,binary)
-
+	if outputtype != "":
+		#Convert Mesh if different outputtype is given
+	    convertMesh(outputtype,output)
+	else:
+		#else add texture to final Mesh
+		run_10_texturing(output,binary)
 
 main()
