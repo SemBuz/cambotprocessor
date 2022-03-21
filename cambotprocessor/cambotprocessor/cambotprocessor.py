@@ -7,6 +7,7 @@ from BlurDetection import remove_blur
 import configparser
 import meshio
 
+#Creates Directory if Directory doesnt exist
 def silent_mkdir(theDir):
 	try:
 		os.mkdir(theDir)
@@ -14,6 +15,7 @@ def silent_mkdir(theDir):
 		pass
 	return 0
 
+#StandardQueue Step 0
 def run_00_camerainit(baseDir,binDir,srcImageDir):
 	silent_mkdir(baseDir + "/00_CameraInit")
 
@@ -29,6 +31,7 @@ def run_00_camerainit(baseDir,binDir,srcImageDir):
 
 	return 0
 
+#StandardQueue Step 1
 def run_01_featureextraction(baseDir,binDir, numImages):
 	silent_mkdir(baseDir + "/01_FeatureExtraction")
 
@@ -48,6 +51,7 @@ def run_01_featureextraction(baseDir,binDir, numImages):
 
 	return 0
 
+#StandardQueue Step 2
 def run_02_imagematching(baseDir,binDir):
 	silent_mkdir(baseDir + "/02_ImageMatching")
 
@@ -68,6 +72,7 @@ def run_02_imagematching(baseDir,binDir):
 
 	return 0
 
+#StandardQueue Step 3
 def run_03_featurematching(baseDir,binDir):
 	silent_mkdir(baseDir + "/03_FeatureMatching")
 
@@ -91,6 +96,7 @@ def run_03_featurematching(baseDir,binDir):
 	subprocess.call(cmdLine)
 	return 0
 
+#StandardQueue Step 4
 def run_04_structure_from_motion(baseDir,binDir):
 	silent_mkdir(baseDir + "/04_StructureFromMotion")
 
@@ -118,7 +124,7 @@ def run_04_structure_from_motion(baseDir,binDir):
 	subprocess.call(cmdLine)
 	return 0
 
-
+#StandardQueue Step 5
 def run_05_prepare_densescene(baseDir,binDir):
 	silent_mkdir(baseDir + "/05_PrepareDenseScene")
 
@@ -136,6 +142,7 @@ def run_05_prepare_densescene(baseDir,binDir):
 	subprocess.call(cmdLine)
 	return 0
 
+#StandardQueue Step 6
 def run_06_depthmap(baseDir,binDir,numImages,groupSize):
 	silent_mkdir(baseDir + "/06_DepthMap")
 
@@ -167,6 +174,7 @@ def run_06_depthmap(baseDir,binDir,numImages,groupSize):
 
 	return 0
 
+#StandardQueue Step 7
 def run_07_depthmapfilter(baseDir,binDir):
 	silent_mkdir(baseDir + "/07_DepthMapFilter")
 
@@ -188,6 +196,7 @@ def run_07_depthmapfilter(baseDir,binDir):
 	subprocess.call(cmdLine)
 	return 0
 
+#StandardQueue Step 8
 def run_08_meshing(baseDir,binDir,bounding):
 	silent_mkdir(baseDir + "/08_Meshing")
 
@@ -213,6 +222,7 @@ def run_08_meshing(baseDir,binDir,bounding):
 	subprocess.call(cmdLine)
 	return 0
 
+#StandardQueue Step 9
 def run_09_meshfiltering(baseDir,binDir):
 	silent_mkdir(baseDir + "/09_MeshFiltering")
 
@@ -233,6 +243,7 @@ def run_09_meshfiltering(baseDir,binDir):
 
 	return 0
 
+#StandardQueue Step 10
 def run_10_texturing(baseDir,binDir):
 	binName = binDir + "\\aliceVision_texturing.exe"
 
@@ -254,49 +265,68 @@ def run_10_texturing(baseDir,binDir):
 
 	return 0
 
+def run_custom_queue(binDir,queue,input,blur):
+	#first remove blur
+	remove_blur(input,blur)
+	commandqueue = queue.split(",")
+	#each command given will be called in CLS
+	for command in commandqueue:
+		print("command: " + command)
+		subprocess.call(command)
+	return 0
+
 def convertMesh(outputtype,output):
+	#Takes filtered Mesh and saves it in a new format
 	mesh = meshio.read(output + "/09_MeshFiltering" + "/Mesh.obj")
 	mesh.write(output + "/Mesh." + outputtype)
 
-def run_custom_queue(binDir,queue,input,blur):
-	#ToDo: Custom Queue
-	pass
-
 def main():
+	#Parser to detect parameters
 	parser = argparse.ArgumentParser()
 
+	#All available Parameters
 	parser.add_argument('--config',help='configFile with Meshroom-parameters',default="",type=str)
-	parser.add_argument('--blur',help='declares Blurdetection value',type=float)
-	parser.add_argument('--outputtype',help='file extension for final 3D object',type=str)
+	parser.add_argument('--blur',help='declares Blurdetection value',type=float, required = True)
+	parser.add_argument('--outputtype',help='file extension for final 3D object',default="",type=str)
 	parser.add_argument('--meshroomqueue',help='custom Meshroomqueue',default="",type=str)
 	parser.add_argument('--bounding',help='declaration of Boundingbox',default="")
-	parser.add_argument('--input',help='directory of images',type=str)
-	parser.add_argument('--output',help='directory of output',type=str)
-	parser.add_argument('--binary',help='directory of the Meshroom binary',type=str)
+	parser.add_argument('--input',help='directory of images',type=str, required = True)
+	parser.add_argument('--output',help='directory of output',type=str, required = True)
+	parser.add_argument('--binary',help='directory of the Meshroom binary',type=str, required = True)
 
+	#parse arguments into dictionary
 	args = parser.parse_args()
 
+	#Show Parameter inputs
 	print("Base dir  : %s" % args.output)
-	print("Image dir : %s" % args.input)		
+	print("Image dir : %s" % args.input)
 	print("Bin dir   : %s" % args.binary)
 	print("Blur      : %s" % args.blur)
 	print("outputtype: %s" % args.outputtype)
 	print("Bounding  : %s" % args.bounding)
 
-	if (args.meshroomqueue != "" and args.config == ""):
+	#if custom queue is available run custom queue
+	if (args.meshroomqueue != ""):
 	    run_custom_queue(args.binary,args.meshroomqueue,args.input,args.blur)
-	elif args.config != "":
+	#if no custom queue but config is available then run config standard queue
+	elif (args.config != "" and args.meshroomqueue == ""):
 		config_standard_queue(args.config)
 	else:
+	#default case run standardqueue
 		standard_queue(args)
+	
+	return 0
 
 def standard_queue(args):
+	#first remove blur
 	remove_blur(args.input,args.blur)
 
+	#count number of images (necessary for various Meshroomsteps)
 	numImages = len([name for name in os.listdir(args.input)])
 
 	silent_mkdir(args.output)
 
+	#Standardqueue
 	run_00_camerainit(args.output,args.binary,args.input)
 	run_01_featureextraction(args.output,args.binary,numImages)
 	run_02_imagematching(args.output,args.binary)
@@ -314,7 +344,9 @@ def standard_queue(args):
 		#else add texture to final Mesh
 		run_10_texturing(args.output,args.binary)
 
+
 def config_standard_queue(configFile):
+	#extract values from configfile
 	config = configparser.ConfigParser()
 	config.sections()
 	config.read(configFile)
@@ -326,13 +358,16 @@ def config_standard_queue(configFile):
 	outputtype = config["ObligatoryParameters"]["outputtype"]
 	meshroomqueue = config["OptionalParameters"]["meshroomqueue"]
 
-	if meshroomqueue != "":
+	if meshroomqueue == "":
+		#first remove blur
 		remove_blur(input,blur)
 
+		#count number of images (necessary for various Meshroomsteps)
 		numImages = len([name for name in os.listdir(input)])
 
 		silent_mkdir(output)
 	
+		#Standardqueue
 		run_00_camerainit(output,binary,input)
 		run_01_featureextraction(output,binary,numImages)
 		run_02_imagematching(output,binary)
@@ -344,10 +379,16 @@ def config_standard_queue(configFile):
 		run_08_meshing(output,binary,bounding)
 		run_09_meshfiltering(output,binary)
 		if outputtype != "":
+			#Convert Mesh if different outputtype is given
 			convertMesh(outputtype,output)
 		else:
+			#else add texture to final Mesh
 			run_10_texturing(output,binary)
 	else:
+		#if customqueue in config
 		run_custom_queue(binary,meshroomqueue,input,blur)
 
+
 main()
+
+
