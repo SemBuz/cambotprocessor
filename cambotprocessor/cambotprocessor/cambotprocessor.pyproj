@@ -24,6 +24,9 @@
     <Compile Include="APICommunication.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="APICommunicationTest.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="BlurDetection.py">
       <SubType>Code</SubType>
     </Compile>
